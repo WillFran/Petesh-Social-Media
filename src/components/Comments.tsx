@@ -184,12 +184,19 @@ export default function Comments({ photoId }: Props) {
         <div style={{ marginTop: 8, whiteSpace: "pre-wrap" }}>{c.body}</div>
 
         <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center" }}>
-          <button
-            onClick={() => setReplyTo(c.id)}
-            style={{ border: 0, background: "transparent", cursor: "pointer" }}
-          >
-            Responder
-          </button>
+      
+      <button
+        onClick={() => setReplyTo(c.id)}
+        style={{
+        border: "none",
+        background: "none",
+        color: "#4da6ff",
+        fontWeight: 600,
+        cursor: "pointer"
+      }}
+    >
+      Responder
+    </button>
 
           {replyTo === c.id && (
             <span style={{ fontSize: 12, opacity: 0.7 }}>Respondiendo…</span>
