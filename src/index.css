@@ -303,44 +303,40 @@ body {
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100;
-  background: rgba(0,0,0,0.72);
-  backdrop-filter: blur(14px);
-  display: grid;
-  place-items: center;
-  padding: 18px;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  z-index: 9999;
 }
 
 .modal {
-  width: min(1100px, 100%);
-  border-radius: 22px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background:
-    radial-gradient(900px 400px at 15% 0%, rgba(255,59,59,0.14), transparent 55%),
-    radial-gradient(900px 400px at 85% 0%, rgba(138,92,255,0.14), transparent 55%),
-    rgba(10, 12, 18, 0.78);
-  box-shadow: 0 26px 90px rgba(0,0,0,0.65);
+  width: min(980px, 100%);
+  max-height: 90dvh; /* clave */
+  background: #0b0b0f;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column; /* clave */
   overflow: hidden;
 }
 
 .full {
-  width: calc(100% - 28px);
-  margin: 14px;
-  max-height: 68vh;
+  width: 100%;
+  max-height: 50dvh;
   object-fit: contain;
-  border-radius: 16px;
-  background: rgba(0,0,0,0.35);
-  box-shadow: 0 16px 70px rgba(0,0,0,0.55);
-  display: block;
 }
 
 .modalBar {
+  padding: 12px;
   display: flex;
   justify-content: flex-end;
-  padding: 10px 14px 14px;
-  border-top: 1px solid rgba(255,255,255,0.06);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  background: rgba(0,0,0,0.18);
+}
+
+.modalBody {
+  flex: 1;
+  overflow-y: auto; /* 🔥 ESTO ES LO IMPORTANTE */
+  padding: 16px;
 }
 
 .modalId {
@@ -352,10 +348,6 @@ body {
   white-space: nowrap;
 }
 
-.modalBody {
-  padding: 14px;
-  background: rgba(0,0,0,0.12);
-}
 
 /* -----------------------------
    6) Buttons + inputs (global)

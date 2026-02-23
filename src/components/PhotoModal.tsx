@@ -16,7 +16,7 @@ export default function PhotoModal({
         <img className="full" src={buildImageUrl(publicId, 1600)} alt="" />
 
         <div className="modalBar">
-            <button className="btn" onClick={onClose}>Cerrar</button>
+          <button className="btn" onClick={onClose}>Cerrar</button>
         </div>
 
         <div className="modalBody">
