@@ -26,9 +26,7 @@ function buildTree(rows: Row[]): Node[] {
   }
 
   const sortRec = (arr: Node[]) => {
-    arr.sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    )
+    arr.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
     arr.forEach((x) => sortRec(x.replies))
   }
 
@@ -49,6 +47,7 @@ export default function Comments({ photoId }: Props) {
   const [text, setText] = useState("")
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [error, setError] = useState("")
+  const [busyId, setBusyId] = useState<string | null>(null)
 
   const tree = useMemo(() => buildTree(rows), [rows])
 
@@ -113,7 +112,58 @@ export default function Comments({ photoId }: Props) {
     load()
   }
 
+  // ✅ DELETE: borra comentario (y opcionalmente sus respuestas locales)
+  async function deleteComment(id: string) {
+    setError("")
+    if (!session?.user) return setError("Inicia sesión para administrar tus comentarios.")
+
+    const ok = window.confirm("¿Eliminar este comentario? (No se puede deshacer)")
+    if (!ok) return
+
+    try {
+      setBusyId(id)
+
+      const { error } = await supabase.from("comments").delete().eq("id", id)
+      if (error) return setError(error.message)
+
+      // Si borras un comentario padre, suele quedar “huérfano” en UI.
+      // Para mantenerlo limpio, removemos localmente el comentario y sus descendientes.
+      setRows((prev) => {
+        const byId = new Map(prev.map((r) => [r.id, r]))
+        const childrenByParent = new Map<string, string[]>()
+
+        for (const r of prev) {
+          if (r.parent_id) {
+            const arr = childrenByParent.get(r.parent_id) ?? []
+            arr.push(r.id)
+            childrenByParent.set(r.parent_id, arr)
+          }
+        }
+
+        const toRemove = new Set<string>()
+        const stack = [id]
+        while (stack.length) {
+          const cur = stack.pop()!
+          if (toRemove.has(cur)) continue
+          toRemove.add(cur)
+          const kids = childrenByParent.get(cur) ?? []
+          kids.forEach((k) => stack.push(k))
+        }
+
+        // Si por algún motivo el id no existe, no tocamos nada
+        if (!byId.has(id)) return prev
+        return prev.filter((r) => !toRemove.has(r.id))
+      })
+
+      if (replyTo === id) setReplyTo(null)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   function CommentNode({ c, depth = 0 }: { c: Node; depth?: number }) {
+    const isOwner = session?.user?.id === c.user_id
+
     return (
       <div
         style={{
@@ -133,15 +183,33 @@ export default function Comments({ photoId }: Props) {
 
         <div style={{ marginTop: 8, whiteSpace: "pre-wrap" }}>{c.body}</div>
 
-        <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
+        <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center" }}>
           <button
             onClick={() => setReplyTo(c.id)}
             style={{ border: 0, background: "transparent", cursor: "pointer" }}
           >
             Responder
           </button>
+
           {replyTo === c.id && (
             <span style={{ fontSize: 12, opacity: 0.7 }}>Respondiendo…</span>
+          )}
+
+          {isOwner && (
+            <button
+              onClick={() => deleteComment(c.id)}
+              disabled={busyId === c.id}
+              style={{
+                border: 0,
+                background: "transparent",
+                cursor: busyId === c.id ? "not-allowed" : "pointer",
+                color: "crimson",
+                opacity: busyId === c.id ? 0.6 : 1,
+              }}
+              title="Eliminar comentario"
+            >
+              {busyId === c.id ? "Eliminando..." : "Eliminar"}
+            </button>
           )}
         </div>
 
@@ -173,7 +241,14 @@ export default function Comments({ photoId }: Props) {
 
       <div style={{ marginBottom: 10 }}>
         {session?.user ? (
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 10,
+              alignItems: "center",
+            }}
+          >
             <div style={{ fontSize: 14, opacity: 0.85 }}>
               Sesión: <b>{session.user.user_metadata?.full_name || session.user.email}</b>
             </div>
