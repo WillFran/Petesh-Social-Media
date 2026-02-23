@@ -23,7 +23,7 @@ export default function App() {
           <div className="brand">
             <div className="logoDot" />
             <div>
-              <div className="brandName">L@s PETESH</div>
+              <div className="brandName">L@s PRETESH</div>
               <div className="brandSub">Social Media Cerrado</div>
             </div>
           </div>
@@ -63,7 +63,7 @@ export default function App() {
           <div className="footerLeft">
             <span className="footerDot" />
             <div className="footerText">
-              <div className="footerBrand">L@s PETESH</div>
+              <div className="footerBrand">L@s PRETESH</div>
               <div className="footerSub">Festival urbano • Álbum privado</div>
             </div>
           </div>
