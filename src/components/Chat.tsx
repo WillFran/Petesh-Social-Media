@@ -280,9 +280,11 @@ useEffect(() => {
               <button
                 key={p.id}
                 onClick={() => {
-                  setSelected(p);
-                  if (isNarrow) setView("chat"); // ✅ WhatsApp navigation
-                }}
+  setMessages([]);   // ✅ limpia instantáneo (evita que se vea el chat anterior)
+  setText("");       // opcional (para que no se quede texto escrito)
+  setSelected(p);
+  if (isNarrow) setView("chat");
+}}
                 style={{
                   display: "flex",
                   alignItems: "center",
