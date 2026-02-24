@@ -47,7 +47,7 @@ export default function ChatDrawer({ open, onClose, children }: Props) {
     if (isMobile) {
       return {
         width: "100vw",
-        height: "100vh",
+        height: "100dvh",
         right: 0,
         top: 0,
         bottom: 0,
@@ -58,7 +58,7 @@ export default function ChatDrawer({ open, onClose, children }: Props) {
     // Desktop / tablet: card flotante con margen
     return {
       width: "clamp(340px, 32vw, 440px)",
-      height: "calc(100vh - 96px)", // deja respirar arriba/abajo
+      height: "calc(100dvh - 96px)", // deja respirar arriba/abajo
       right: 24,
       top: 72,
       bottom: 24,
@@ -142,7 +142,7 @@ export default function ChatDrawer({ open, onClose, children }: Props) {
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>{children}</div>
+        <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>{children}</div>
       </div>
     </>
   );
