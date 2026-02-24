@@ -323,7 +323,11 @@ export default function Chat() {
           {isNarrow && (
             <button
               type="button"
-              onClick={() => setView("list")}
+              onClick={() => {
+                setMessages([]);        
+                setText("");            
+                if (isNarrow) setView("chat");
+            }}
               style={{
                 width: 40,
                 height: 36,
