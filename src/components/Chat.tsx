@@ -17,6 +17,8 @@ type Message = {
   created_at: string;
 };
 
+const loadReqRef = useRef(0);
+
 function samePair(m: Message, me: string, other: string) {
   return (
     (m.sender_id === me && m.receiver_id === other) ||
@@ -98,21 +100,26 @@ export default function Chat() {
     });
   }
 
-  async function loadMessages(otherId: string) {
-    if (!me) return;
-    setError("");
+async function loadMessages(otherId: string) {
+  if (!me) return;
+  setError("");
 
-    const { data, error } = await supabase
-      .from("messages")
-      .select("id, sender_id, receiver_id, body, created_at")
-      .or(
-        `and(sender_id.eq.${me},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${me})`
-      )
-      .order("created_at", { ascending: true });
+  const reqId = ++loadReqRef.current; // ✅ marca este request como el más nuevo
 
-    if (error) return setError(error.message);
-    setMessages((data ?? []) as Message[]);
-  }
+  const { data, error } = await supabase
+    .from("messages")
+    .select("id, sender_id, receiver_id, body, created_at")
+    .or(
+      `and(sender_id.eq.${me},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${me})`
+    )
+    .order("created_at", { ascending: true });
+
+  // ✅ si mientras tanto cambiaste de chat, ignora esta respuesta
+  if (reqId !== loadReqRef.current) return;
+
+  if (error) return setError(error.message);
+  setMessages((data ?? []) as Message[]);
+}
 
   // ✅ when changes me → load users
   useEffect(() => {
@@ -128,14 +135,17 @@ export default function Chat() {
   }, [me]);
 
   // ✅ when changes selected → load messages
-  useEffect(() => {
-    if (!me || !selected?.id) {
-      setMessages([]);
-      return;
-    }
-    loadMessages(selected.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me, selected?.id]);
+useEffect(() => {
+  if (!me || !selected?.id) {
+    setMessages([]);
+    return;
+  }
+
+  setMessages([]); // ✅ limpia inmediatamente el chat anterior
+  loadMessages(selected.id);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [me, selected?.id]);
 
   // ✅ realtime subscription
   useEffect(() => {
