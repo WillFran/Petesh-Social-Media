@@ -17,8 +17,6 @@ type Message = {
   created_at: string;
 };
 
-const loadReqRef = useRef(0);
-
 function samePair(m: Message, me: string, other: string) {
   return (
     (m.sender_id === me && m.receiver_id === other) ||
@@ -34,6 +32,7 @@ function dmChannel(me: string, other: string) {
 export default function Chat() {
   const { user, profile, loading: authLoading } = useAuth();
   const me = user?.id;
+  const loadReqRef = useRef(0);
 
   // ✅ responsive by container width (works inside drawer)
   const rootRef = useRef<HTMLDivElement | null>(null);
