@@ -1,23 +1,28 @@
 // src/App.tsx
-import { useState } from "react"
-import { photos } from "./data/photos"
-import GalleryGrid from "./components/GalleryGrid"
-import PhotoModal from "./components/PhotoModal"
-import Comments from "./components/Comments"
+import { useState } from "react";
+import { photos } from "./data/photos";
+import GalleryGrid from "./components/GalleryGrid";
+import PhotoModal from "./components/PhotoModal";
+import Comments from "./components/Comments";
+import Chat from "./components/Chat";
+import AccountMenu from "./components/AccountMenu";
+import FloatingChatButton from "./components/FloatingChatButton";
+import ChatDrawer from "./components/ChatDrawer";
 
-type SortMode = "recent" | "comments"
+type SortMode = "recent" | "comments";
 
 export default function App() {
-  const [selected, setSelected] = useState<string | null>(null)
-  const [sort, setSort] = useState<SortMode>("recent")
+  const [selected, setSelected] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortMode>("recent");
 
-  const sortedPhotos =
-    sort === "recent"
-      ? [...photos].reverse()
-      : photos // luego: ordenar por cantidad real de comentarios
+  // ✅ Nuevo estado global del chat
+  const [chatOpen, setChatOpen] = useState(false);
+
+  const sortedPhotos = sort === "recent" ? [...photos].reverse() : photos;
 
   return (
     <div className="appShell">
+      {/* ================= HEADER ================= */}
       <header className="topbar">
         <div className="topbarInner">
           <div className="brand">
@@ -37,6 +42,7 @@ export default function App() {
               >
                 Recientes
               </button>
+
               <button
                 type="button"
                 className={sort === "comments" ? "segBtn active" : "segBtn"}
@@ -46,18 +52,22 @@ export default function App() {
               </button>
             </div>
 
-            <button type="button" className="userBtn" aria-label="Perfil">
-              <span className="avatar">FD</span>
-            </button>
+            <AccountMenu />
           </div>
         </div>
       </header>
 
-      <main className="content">
-        <h1 className="pageTitle">Álbum</h1>
-        <GalleryGrid photos={sortedPhotos} onSelect={setSelected} />
-      </main>
+      {/* ================= PAGE CONTENT ================= */}
+      <div className="pageContainer">
+        {/* ✅ Chat eliminado de aquí */}
 
+        <main className="content">
+          <h1 className="pageTitle">Álbum</h1>
+          <GalleryGrid photos={sortedPhotos} onSelect={setSelected} />
+        </main>
+      </div>
+
+      {/* ================= FOOTER ================= */}
       <footer className="footer">
         <div className="footerInner">
           <div className="footerLeft">
@@ -75,11 +85,23 @@ export default function App() {
         </div>
       </footer>
 
+      {/* ================= CHAT FLOATING SYSTEM ================= */}
+
+      <FloatingChatButton
+        onClick={() => setChatOpen(true)}
+        unreadCount={0} // luego conectamos esto a Supabase
+      />
+
+      <ChatDrawer open={chatOpen} onClose={() => setChatOpen(false)}>
+        <Chat />
+      </ChatDrawer>
+
+      {/* ================= MODAL ================= */}
       {selected && (
         <PhotoModal publicId={selected} onClose={() => setSelected(null)}>
           <Comments photoId={selected} />
         </PhotoModal>
       )}
     </div>
-  )
+  );
 }

@@ -59,12 +59,24 @@ body {
 /* -----------------------------
    1) App Shell + layout
 ------------------------------ */
-.appShell { min-height: 100vh; }
+.appShell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
 
 .content {
+width: 100%;
+}
+
+.pageContainer {
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 22px 18px 60px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .pageTitle {
@@ -459,4 +471,31 @@ textarea:focus, input:focus {
 .footerMeta {
   font-size: 12px;
   color: rgba(234,234,240,0.70);
+}
+
+.chatShell{
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 12px;
+  margin: 12px auto 0;
+  padding: 0 16px;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.chatUsers, .chatBox{
+  border: 1px solid #2a2a2a;
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.chatWrapper {
+  width: 100%;
+}
+
+/* móvil */
+@media (max-width: 900px){
+  .chatShell{
+    grid-template-columns: 1fr;
+  }
 }
