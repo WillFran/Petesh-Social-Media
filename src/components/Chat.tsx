@@ -333,10 +333,9 @@ useEffect(() => {
             <button
               type="button"
               onClick={() => {
-                setMessages([]);        
-                setText("");            
-                if (isNarrow) setView("chat");
-            }}
+                setView("list");     // ✅ volver a la lista
+                setText("");         // opcional
+              }}
               style={{
                 width: 40,
                 height: 36,
