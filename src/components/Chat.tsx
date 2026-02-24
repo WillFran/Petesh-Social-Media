@@ -1,5 +1,5 @@
 // src/components/Chat.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../hooks/useAuth";
 
@@ -31,8 +31,11 @@ function dmChannel(me: string, other: string) {
 
 export default function Chat() {
   const { user, profile, loading: authLoading } = useAuth();
-  const me = user?.id;
+  const me = user?.id ?? null;
+
+  // ✅ anti-race: fetch requests + active chat guard
   const loadReqRef = useRef(0);
+  const activeChatRef = useRef<string | null>(null);
 
   // ✅ responsive by container width (works inside drawer)
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -43,7 +46,6 @@ export default function Chat() {
     if (!el) return;
 
     const ro = new ResizeObserver(([entry]) => {
-      // threshold: under this, 2 columns looks bad → WhatsApp mode
       setIsNarrow(entry.contentRect.width < 720);
     });
 
@@ -54,14 +56,15 @@ export default function Chat() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selected, setSelected] = useState<Profile | null>(null);
 
-  // ✅ narrow mode navigation (WhatsApp style)
+  // ✅ narrow navigation (WhatsApp style)
   const [view, setView] = useState<"list" | "chat">("list");
 
   const [messages, setMessages] = useState<Message[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
 
-  // ✅ Auto-scroll
+  // ✅ Auto-scroll anchor
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const headerName = useMemo(() => {
@@ -99,26 +102,33 @@ export default function Chat() {
     });
   }
 
-async function loadMessages(otherId: string) {
-  if (!me) return;
-  setError("");
+  async function loadMessages(otherId: string) {
+    if (!me) return;
 
-  const reqId = ++loadReqRef.current; // ✅ marca este request como el más nuevo
+    setError("");
+    setLoadingMessages(true);
 
-  const { data, error } = await supabase
-    .from("messages")
-    .select("id, sender_id, receiver_id, body, created_at")
-    .or(
-      `and(sender_id.eq.${me},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${me})`
-    )
-    .order("created_at", { ascending: true });
+    const reqId = ++loadReqRef.current;
 
-  // ✅ si mientras tanto cambiaste de chat, ignora esta respuesta
-  if (reqId !== loadReqRef.current) return;
+    const { data, error } = await supabase
+      .from("messages")
+      .select("id, sender_id, receiver_id, body, created_at")
+      .or(
+        `and(sender_id.eq.${me},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${me})`
+      )
+      .order("created_at", { ascending: true });
 
-  if (error) return setError(error.message);
-  setMessages((data ?? []) as Message[]);
-}
+    // ✅ ignore stale response (user changed chat)
+    if (reqId !== loadReqRef.current) return;
+
+    if (error) {
+      setLoadingMessages(false);
+      return setError(error.message);
+    }
+
+    setMessages((data ?? []) as Message[]);
+    setLoadingMessages(false);
+  }
 
   // ✅ when changes me → load users
   useEffect(() => {
@@ -126,6 +136,7 @@ async function loadMessages(otherId: string) {
       setProfiles([]);
       setSelected(null);
       setMessages([]);
+      setLoadingMessages(false);
       setView("list");
       return;
     }
@@ -133,31 +144,39 @@ async function loadMessages(otherId: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me]);
 
-  // ✅ when changes selected → load messages
-useEffect(() => {
-  if (!me || !selected?.id) {
-    setMessages([]);
-    return;
-  }
+  // ✅ when changes selected → clear instantly + load messages
+  useEffect(() => {
+    if (!me || !selected?.id) {
+      setMessages([]);
+      setLoadingMessages(false);
+      return;
+    }
 
-  setMessages([]); // ✅ limpia inmediatamente el chat anterior
-  loadMessages(selected.id);
+    activeChatRef.current = selected.id; // ✅ mark active chat
+    setMessages([]); // ✅ prevents showing previous chat
+    loadMessages(selected.id);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [me, selected?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me, selected?.id]);
 
-  // ✅ realtime subscription
+  // ✅ realtime subscription (guarded)
   useEffect(() => {
     if (!me || !selected?.id) return;
 
+    const chatId = selected.id;
+    activeChatRef.current = chatId;
+
     const channel = supabase
-      .channel(dmChannel(me, selected.id))
+      .channel(dmChannel(me, chatId))
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },
         (payload) => {
+          // ✅ ignore inserts for a chat that's no longer active
+          if (activeChatRef.current !== chatId) return;
+
           const m = payload.new as Message;
-          if (!samePair(m, me, selected.id)) return;
+          if (!samePair(m, me, chatId)) return;
 
           setMessages((prev) => {
             if (prev.some((x) => x.id === m.id)) return prev;
@@ -172,12 +191,12 @@ useEffect(() => {
     };
   }, [me, selected?.id]);
 
-  // ✅ Auto-scroll
+  // ✅ Auto-scroll when messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, selected?.id]);
 
-  // ✅ "unread" naive (UX only)
+  // ✅ "unread" naive (UX only; not real read-state)
   const unreadByUser = useMemo(() => {
     if (!me) return new Map<string, number>();
 
@@ -225,11 +244,7 @@ useEffect(() => {
 
   // ✅ when layout becomes wide again, keep experience stable
   useEffect(() => {
-    if (!isNarrow) {
-      // desktop: no "view" needed
-      return;
-    }
-    // narrow: if user already selected, you may prefer to stay in list until they pick
+    if (!isNarrow) return;
     if (!selected) setView("list");
   }, [isNarrow, selected]);
 
@@ -280,11 +295,13 @@ useEffect(() => {
               <button
                 key={p.id}
                 onClick={() => {
-  setMessages([]);   // ✅ limpia instantáneo (evita que se vea el chat anterior)
-  setText("");       // opcional (para que no se quede texto escrito)
-  setSelected(p);
-  if (isNarrow) setView("chat");
-}}
+                  // ✅ avoid flash: clear immediately + switch
+                  setMessages([]);
+                  setLoadingMessages(true); // will show "Cargando..." instead of "Aún no hay..."
+                  setText("");
+                  setSelected(p);
+                  if (isNarrow) setView("chat");
+                }}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -335,8 +352,8 @@ useEffect(() => {
             <button
               type="button"
               onClick={() => {
-                setView("list");     // ✅ volver a la lista
-                setText("");         // opcional
+                setView("list"); // ✅ back to list
+                setText("");
               }}
               style={{
                 width: 40,
@@ -382,6 +399,8 @@ useEffect(() => {
           <div style={{ opacity: 0.75 }}>Inicia sesión para chatear.</div>
         ) : !selected ? (
           <div style={{ opacity: 0.75 }}>Selecciona un usuario.</div>
+        ) : loadingMessages ? (
+          <div style={{ opacity: 0.75 }}>Cargando mensajes…</div>
         ) : messages.length === 0 ? (
           <div style={{ opacity: 0.75 }}>Aún no hay mensajes.</div>
         ) : (
@@ -434,7 +453,10 @@ useEffect(() => {
             color: "inherit",
           }}
           onKeyDown={(e) => {
-            if (e.key === "Enter") send();
+            if (e.key === "Enter") {
+              e.preventDefault();
+              send();
+            }
           }}
         />
         <button
@@ -459,7 +481,13 @@ useEffect(() => {
   return (
     <div ref={rootRef} style={shellStyle}>
       {/* ✅ Narrow: WhatsApp navigation */}
-      {isNarrow ? (view === "list" ? listPanel : chatPanel) : (
+      {isNarrow ? (
+        view === "list" ? (
+          listPanel
+        ) : (
+          chatPanel
+        )
+      ) : (
         <>
           {listPanel}
           {chatPanel}
